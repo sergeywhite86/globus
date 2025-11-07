@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: globus-postgres
+    environment:
+      POSTGRES_DB: globus_db
+      POSTGRES_USER: globus_user
+      POSTGRES_PASSWORD: globus
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - globus-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: globus-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/globus_db
+      SPRING_DATASOURCE_USERNAME: globus_user
+      SPRING_DATASOURCE_PASSWORD: globus
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - globus-network
+
+volumes:
+  postgres_data:
+
+networks:
+  globus-network:
+    driver: bridge
