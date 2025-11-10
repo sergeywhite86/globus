@@ -1,6 +1,7 @@
 package org.sergey_white.globus.service;
 
 import jakarta.transaction.Transactional;
+import jakarta.validation.ValidationException;
 import lombok.AllArgsConstructor;
 import org.sergey_white.globus.dto.CreateUserDto;
 import org.sergey_white.globus.dto.UserDto;
@@ -22,7 +23,6 @@ public class UserService {
     private final UserRepository repository;
     private final UserMapper mapper;
 
-    @Transactional
     public User save(CreateUserDto dto) {
 
         if (repository.findUserByMailEquals(dto.mail()) != null) {
@@ -49,6 +49,8 @@ public class UserService {
     @Transactional
     public UserDto update(Long id, UserUpdateDto updateDto) {
 
+        validateUserUpdateDto(updateDto);
+
         User user = repository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
 
@@ -58,12 +60,21 @@ public class UserService {
 
     }
 
-    @Transactional
+
     public void deleteById(Long id) {
 
         repository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
         repository.deleteById(id);
 
+    }
+
+    private void validateUserUpdateDto(UserUpdateDto dto) {
+        if (dto.name() != null && dto.name().isBlank()) {
+            throw new ValidationException("Name cannot be empty");
+        }
+        if (dto.surName() != null && dto.surName().isBlank()) {
+            throw new ValidationException("Surname cannot be empty");
+        }
     }
 
 }
