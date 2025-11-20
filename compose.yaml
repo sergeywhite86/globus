@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -10,29 +8,68 @@ services:
       POSTGRES_PASSWORD: globus
     ports:
       - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     networks:
       - globus-network
 
-  app:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: globus-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - globus-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: globus-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8081:8080"
+    depends_on:
+      - kafka
+    networks:
+      - globus-network
+
+  main-app:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: globus-app
+      dockerfile: main-app/Dockerfile
+    container_name: globus-main-app
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/globus_db
       SPRING_DATASOURCE_USERNAME: globus_user
       SPRING_DATASOURCE_PASSWORD: globus
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8080:8080"
     depends_on:
       - postgres
+      - kafka
     networks:
       - globus-network
 
-volumes:
-  postgres_data:
+  mail-service:
+    build:
+      context: .
+      dockerfile: mail-service/Dockerfile
+    container_name: globus-mail-service
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      - kafka
+    networks:
+      - globus-network
 
 networks:
   globus-network:
